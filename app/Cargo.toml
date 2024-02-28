@@ -1,0 +1,11 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+network = { path = "../network"}
+node = { path = "../node"}
+
+dotenv = "0.15.0"
+tokio = "1.36.0"
