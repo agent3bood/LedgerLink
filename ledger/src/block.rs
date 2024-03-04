@@ -1,21 +1,22 @@
 use crate::transaction::Transaction;
+use utils::Utils;
 
 pub struct Block {
-    pub(crate) index: u64,
-    pub(crate) transactions: Vec<Transaction>,
-    pub(crate) timestamp: u64,
-    pub(crate) hash: String,
-    pub(crate) prev_hash: String,
+    pub index: u64,
+    pub transactions: Vec<Transaction>,
+    pub timestamp: u64,
+    pub hash: String,
+    pub prev_hash: String,
 }
 
 impl Block {
     pub fn new(
         index: u64,
-        transactions: Vec<Transaction>,
         timestamp: u64,
         prev_hash: String,
+        transactions: Vec<Transaction>,
     ) -> Block {
-        let hash = Block::calculate_hash(index, &transactions, timestamp, &prev_hash);
+        let hash = Block::calculate_hash(index, timestamp, &prev_hash, &transactions);
         Block {
             index,
             transactions,
@@ -25,26 +26,43 @@ impl Block {
         }
     }
 
+    pub fn genesis() -> Block {
+        Block::new(0, 0, "0".to_string(), vec![])
+    }
+
     pub fn verify(&self) -> bool {
+        self.verify_hash() && self.verify_transactions()
+    }
+
+    fn verify_hash(&self) -> bool {
         self.hash
             == Block::calculate_hash(
                 self.index,
-                &self.transactions,
                 self.timestamp,
                 &self.prev_hash,
+                &self.transactions,
             )
+    }
+
+    fn verify_transactions(&self) -> bool {
+        for transaction in &self.transactions {
+            if !transaction.verify() {
+                return false;
+            }
+        }
+        true
     }
 
     fn calculate_hash(
         index: u64,
-        transactions: &Vec<Transaction>,
         timestamp: u64,
         prev_hash: &str,
+        transactions: &Vec<Transaction>,
     ) -> String {
         let mut data = format!("{}{}{}", index, timestamp, prev_hash);
         for transaction in transactions {
             data.push_str(&transaction.hash);
         }
-        hex::encode(sha256::digest(data.as_bytes()))
+        Utils::hash_data(&data)
     }
 }
