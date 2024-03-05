@@ -1,3 +1,4 @@
+use ecdsa::signature::digest::Digest;
 use k256::ecdsa::signature::RandomizedSigner;
 use k256::ecdsa::Signature;
 use k256::{
@@ -38,6 +39,21 @@ impl Utils {
         let signing_key: SigningKey = SigningKey::from(secret_key);
         Ok(signing_key)
     }
+
+    pub fn encode_signature(signature: &Signature) -> String {
+        hex::encode(signature.to_der()).to_string()
+    }
+
+    pub fn decode_signature(signature: &str) -> Result<Signature, Box<dyn std::error::Error>> {
+        let signature_bytes = hex::decode(signature)?;
+        Ok(Signature::from_der(&signature_bytes)?)
+    }
+
+    pub fn hash_data(data: &str) -> String {
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(data.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
 }
 
 #[cfg(test)]
@@ -45,14 +61,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_verify_signature() {
+    fn test() {
         let private = "MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgYp6GnxdjxLvnucsaaTZ+J+FqtCdjbEaQsEqxk3KHJ3yhRANCAAR6X+Ws+hYmkOMIZTq/HMVBRbMcT1lADpd4z5c3MG6LzyuMDBMGOZ4C3gceN6I0/kzgQ/DWEZcNY4s6/WgLxUD1";
         let public = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEel/lrPoWJpDjCGU6vxzFQUWzHE9ZQA6XeM+XNzBui88rjAwTBjmeAt4HHjeiNP5M4EPw1hGXDWOLOv1oC8VA9Q==";
 
-        let signing_Key = Utils::get_signing_key(private).unwrap();
+        let signing_key = Utils::get_signing_key(private).unwrap();
         let verifying_key = Utils::get_verifying_key(public).unwrap();
         let data = "Hello, world!";
-        let signature = Utils::sign_data(data, &signing_Key);
+        let signature = Utils::sign_data(data, &signing_key);
         assert!(Utils::verify_signature(data, &signature, &verifying_key));
+
+        let encoded_signature = Utils::encode_signature(&signature);
+        let decoded_signature = Utils::decode_signature(&encoded_signature).unwrap();
+        assert_eq!(signature, decoded_signature);
     }
 }

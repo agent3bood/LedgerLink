@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 
 hex = { workspace = true }
-digest = { workspace = true }
 sha2 = { workspace = true }
 ecdsa = { workspace = true }
 pem = { workspace = true }
