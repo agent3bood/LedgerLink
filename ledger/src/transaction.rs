@@ -21,19 +21,19 @@ impl Transaction {
         receiver: &str,
         signature: Option<&str>,
     ) -> Result<Transaction, Box<dyn std::error::Error>> {
-        let hash = Transaction::calculate_hash(nonce, &sender, &receiver, amount);
+        let hash = Transaction::calculate_hash(nonce, sender, receiver, amount);
         Ok(Transaction {
             nonce,
             amount,
             sender: sender.to_string(),
-            sender_key: Utils::get_verifying_key(&sender)?,
+            sender_key: Utils::get_verifying_key(sender)?,
             receiver: receiver.to_string(),
-            receiver_key: Utils::get_verifying_key(&receiver)?,
+            receiver_key: Utils::get_verifying_key(receiver)?,
             hash,
             signature: match signature {
                 None => None,
                 Some(signature) => {
-                    Some((signature.to_string(), Utils::decode_signature(&signature)?))
+                    Some((signature.to_string(), Utils::decode_signature(signature)?))
                 }
             },
         })
