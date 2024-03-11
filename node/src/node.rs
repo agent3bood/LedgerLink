@@ -1,76 +1,114 @@
 use k256::ecdsa::{SigningKey, VerifyingKey};
+use ledger::block::Block;
 use ledger::{chain::Chain, transaction::Transaction};
-use std::sync::{Arc, Mutex};
+use serde::{Deserialize, Serialize};
 use utils::Utils;
 
 pub struct Node {
-    id: VerifyingKey,
+    pub id: String,
+    verifying_key: VerifyingKey,
     key: SigningKey,
-    chain: Arc<Mutex<Chain>>,
-    transactions_pool: Vec<Transaction>,
+    chain: Chain,
+    rx: tokio::sync::mpsc::Receiver<String>,
+    network_tx: tokio::sync::mpsc::Sender<String>,
 }
 
 impl Node {
     pub fn new(
         id: String,
         key: String,
-        chain: Arc<Mutex<Chain>>,
+        chain: Chain,
+        rx: tokio::sync::mpsc::Receiver<String>,
+        network_tx: tokio::sync::mpsc::Sender<String>,
     ) -> Result<Node, Box<dyn std::error::Error>> {
         let signing_key = Utils::get_signing_key(&key)?;
         let verifying_key = Utils::get_verifying_key(&id)?;
 
         Ok(Node {
-            id: verifying_key,
+            id,
+            verifying_key: verifying_key,
             key: signing_key,
             chain,
-            transactions_pool: Vec::new(),
+            rx,
+            network_tx,
         })
     }
 
-    /// transactions comes from the senders or other nodes
+    pub async fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
+        loop {
+            if let Some(message) = self.rx.recv().await {
+                self.handle_message(message)?;
+            }
+        }
+    }
+
+    fn handle_message(&mut self, message: String) -> Result<(), Box<dyn std::error::Error>> {
+        match serde_json::from_str::<Message>(&message) {
+            Ok(message) => match message {
+                Message::Transaction(transaction) => self.handle_transaction(*transaction),
+                Message::Block(block) => self.handle_block(*block),
+            },
+            Err(_) => Err("Invalid message".into()),
+        }
+    }
+
+    /// transactions comes from the senders of the transactions
     /// it should be signed by the sender
     /// nonce should be unique and increasing by 1 for each transaction from the same sender
     /// transactions will be processed in sequence of the nonce
     /// if the transaction is valid and not seen, it will be added to the mempool
-    ///
-    ///
-    pub fn handle_transaction(
+    fn handle_transaction(
         &mut self,
-        nonce: u64,
-        amount: u64,
-        sender: String,
-        receiver: String,
-        signature: String,
+        transaction: Transaction,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let transaction = Transaction::new(nonce, amount, &sender, &receiver, Some(&signature))?;
-        // seen
-        {
-            if self.chain.lock().unwrap().transaction_seen(&sender, nonce) {
-                return Err("Transaction already seen".into());
-            }
-        }
-        // signature
-        {
-            if !transaction.verify() {
-                return Err("Invalid signature".into());
-            }
-        }
-        // add to mempool
-        {
-            // TODO mempool size limit
-            self.transactions_pool.push(transaction);
-        }
+        self.chain.transaction_add(transaction);
 
         Ok(())
     }
 
     /// blocks comes from other nodes
-    pub fn handle_block(
-        &mut self,
-        index: u64,
-        timestamp: u64,
-        transactions: Vec<()>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    /// it should be signed by the sender
+    /// it should be valid
+    /// it should be the next block in the chain otherwise it will be added to the orphan blocks
+    /// if the block is valid and not seen, it will be added to the chain
+    pub fn handle_block(&mut self, block: Block) -> Result<(), Box<dyn std::error::Error>> {
+        self.chain.block_add(block);
+        // // signature
+        // {
+        //     if !block.verify() {
+        //         return Err("Invalid signature".into());
+        //     }
+        // }
+        // // seen
+        // {
+        //     let top_block = self.chain.block_get_top_index();
+        //     if block.index <= top_block {
+        //         return Err("Block already seen".into());
+        //     } else if block.index > top_block + 1 {
+        //         // orphan blocks
+        //         return Ok(());
+        //     }
+        // }
+        //
+        // // verify block
+        // {
+        //     if !block.verify() {
+        //         return Err("Invalid block".into());
+        //     }
+        // }
+        //
+        // // add to chain
+        // {
+        //     self.chain.block_add(block);
+        // }
+
         Ok(())
     }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type")]
+enum Message {
+    Transaction(Box<Transaction>),
+    Block(Box<Block>),
 }

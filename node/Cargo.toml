@@ -8,3 +8,7 @@ ledger = { path = "../ledger" }
 utils = { path = "../utils" }
 
 k256 = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
