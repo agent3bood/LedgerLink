@@ -1,7 +1,8 @@
 use k256::ecdsa::{Signature, SigningKey, VerifyingKey};
-use sha2::Digest;
+use serde::{Deserialize, Serialize};
 use utils::Utils;
 
+#[derive(Serialize, Deserialize)]
 pub struct Transaction {
     pub nonce: u64,
     pub(crate) amount: u64,
@@ -48,6 +49,7 @@ impl Transaction {
         Ok(())
     }
 
+    /// verify the transaction hash and signature
     pub fn verify(&self) -> bool {
         self.verify_hash() && self.verify_signature()
     }

@@ -1,6 +1,8 @@
 use crate::transaction::Transaction;
+use serde::{Deserialize, Serialize};
 use utils::Utils;
 
+#[derive(Serialize, Deserialize)]
 pub struct Block {
     pub index: u64,
     pub transactions: Vec<Transaction>,
